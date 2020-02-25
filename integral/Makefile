@@ -1,13 +1,17 @@
 CC=g++
-CFLAGS=-Wall -Wextra -pedantic -std=c++11
+CFLAGS=-Wall -Wextra -pedantic -std=c++11 -lpthread -O
+//CFLAGS=-Wall -Wextra -pedantic -std=c++11 -lpthread
 
-all: integral
+all: integrate bothMethods
 
 %.o: %.cpp 
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-integral: main.o
-	$(CC) main.o $(CFLAGS) -o integral.exe
+integrate: main.o
+	$(CC) main.o $(CFLAGS) -o integrate
+
+bothMethods: bothMethods.o
+	$(CC) bothMethods.o $(CFLAGS) -o bothMethods
 
 clean:
-	rm *.o *.exe
+	rm *.o integrate bothMethods
