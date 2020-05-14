@@ -30,12 +30,10 @@ __global__ void integrate(double a, double b, int numSamples, double* work, doub
     int iy = threadIdx.y + blockIdx.y * blockDim.y;
     int id = iy*bx + ix;
     
-    //std::default_random_engine randEngine;
-    //randEngine.seed(id);
-    //std::uniform_real_distribution<double> randGen(a, b);
     curandState_t state;
     curand_init(id, 0, 0, &state); // curand_init(seed, sequence number, offset, &state)
 
+    //work[id] = 0;
     for(int i=0; i<numSamples; i++) {
         //double x = randGen(randEngine);
 		// (rand() % (upper - lower + 1)) + lower; 
@@ -43,18 +41,31 @@ __global__ void integrate(double a, double b, int numSamples, double* work, doub
         x *= (b - a + 0.999999);
         x += a;
         double result = sin(x)/x;
-        work[id] += (result * !isnan(result)); // if nan, it will simply add zero ; reduces branches
+        result = result * (isnan(result) == 0);
+        //printf("id=%i, x=%.2f, result=%.2f\n", id, x, result);
+        work[id] += result; // if nan, it will simply add zero ; reduces branches
     }
     
     //synchronize threads within block
     __syncthreads();
 
+    if(id==0) {
+        for(int i=0; i<bx*by; i++) {
+            if(i%bx==0 && i!=0) printf("\n");
+            printf("%.2f ", work[i]);
+        }
+        printf("\n");
+    }
+
+    __syncthreads();
+    
     // sum up the values in each row
     if(threadIdx.x == 0) { // if thread column is left-most
         for(int x=1; x<bx; x++) { // sum up all the partial sums in this row
             int index = iy*bx + (x + blockIdx.x * blockDim.x);
             work[id] += work[index];
         }
+        if(id==0) printf("id=%i, sum of row=%.2f\n", id, work[id]);
     }   
  
     //synchronize threads within block
@@ -86,8 +97,10 @@ int main(int argc, char* argv[]) {
     start = std::chrono::system_clock::now(); 
    
     // define grid and block structure
-    const int bx = 32;
-    const int by = 32;
+    //const int bx = 32;
+    //const int by = 32;
+    const int bx = 2;
+    const int by = 2;
     const int numBlocks = ceil(numThreads / (bx*by));
     dim3 block(bx, by); // 2D block of 32x32 = 1,024 threads per block
     dim3 grid(numBlocks); // 1D grid
@@ -110,7 +123,8 @@ int main(int argc, char* argv[]) {
     cudaMalloc((void**)&d_work.ptr, d_work.numBytes); // each block will compute sum ; host will add up the block sums
 
     // launch CUDA kernel 
-    integrate<<<grid, block>>>(a, b, numSamples/numThreads, d_results.ptr, d_work.ptr, bx, by);
+    int samplesPerThread = numSamples / numThreads;
+    integrate<<<grid, block>>>(a, b, samplesPerThread, d_results.ptr, d_work.ptr, bx, by);
 
     // copy results from device to host
     double* h_results = (double*) malloc(d_results.numBytes);
@@ -119,9 +133,11 @@ int main(int argc, char* argv[]) {
     // compute the sum of each block
     double integral = 0.0;
     for(int i=0; i<numBlocks; i++) {
+        printf("Block %i: sum=%.2f\n", i, h_results[i]);
         integral += h_results[i];
     }
-
+    integral = abs(b-a) * (integral/(samplesPerThread * (bx*by) * numBlocks)); // sum/numSamples
+    
     // free device memory
     cudaFree(d_results.ptr);
     cudaFree(d_work.ptr);
@@ -134,20 +150,20 @@ int main(int argc, char* argv[]) {
     std::cout << numThreads << " threads: " << " numBlocks " << numBlocks << " Result: " << std::setprecision(10) << integral << "; Elapsed time: " << elapsed_sec.count() << "s" << std::endl;
     //std::cout << std::setprecision(10) << integral << std::endl;
 
-    // write to csv file
-    std::string csvfile_name = std::to_string((int)abs(a)) + "-" + std::to_string((int)abs(b)) + "-" + std::to_string(numSamples) + "-" + std::to_string(numThreads) + ".csv";
-    std::ofstream csvfile;
-    csvfile.open(csvfile_name);
-    // write csv header
-    csvfile << "a,b,numSamples,integral,elapsed(sec),method,numThreads\n";
-    
-    csvfile << std::to_string((int)a) << ","
-            << std::to_string((int)b) << ","
-            << std::to_string(numSamples) << ","
-            << std::to_string(integral) << ","
-            << elapsed_sec.count() << ","
-            << "monte-carlo" << ','
-            << std::to_string(numThreads) << "\n";
-    
-    csvfile.close();
+    //// write to csv file
+    //std::string csvfile_name = std::to_string((int)abs(a)) + "-" + std::to_string((int)abs(b)) + "-" + std::to_string(numSamples) + "-" + std::to_string(numThreads) + ".csv";
+    //std::ofstream csvfile;
+    //csvfile.open(csvfile_name);
+    //// write csv header
+    //csvfile << "a,b,numSamples,integral,elapsed(sec),method,numThreads\n";
+    //
+    //csvfile << std::to_string((int)a) << ","
+    //        << std::to_string((int)b) << ","
+    //        << std::to_string(numSamples) << ","
+    //        << std::to_string(integral) << ","
+    //        << elapsed_sec.count() << ","
+    //        << "monte-carlo" << ','
+    //        << std::to_string(numThreads) << "\n";
+    //
+    //csvfile.close();
 }
