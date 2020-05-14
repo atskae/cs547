@@ -1,7 +1,5 @@
 #include <iostream>
 #include <string> // stof, stoi
-//#include <random>
-//#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <fstream>
@@ -83,7 +81,6 @@ int main(int argc, char* argv[]) {
     double b = std::stof(argv[2]); // upper limit
     int numSamples = std::stoi(argv[3]); 
     int numThreads = std::stoi(argv[4]);
-    printf("a=%.2f,b=%.2f,numSamples=%i,numThreads=%i\n", a, b, numSamples, numThreads);
 
     std::chrono::time_point<std::chrono::system_clock> start, end;
     start = std::chrono::system_clock::now(); 
@@ -91,10 +88,12 @@ int main(int argc, char* argv[]) {
     // define grid and block structure
     const int bx = 32;
     const int by = 32;
-    const int numBlocks = numThreads / (bx*by) + 1;
+    const int numBlocks = ceil(numThreads / (bx*by));
     dim3 block(bx, by); // 2D block of 32x32 = 1,024 threads per block
     dim3 grid(numBlocks); // 1D grid
-
+    printf("a=%.2f,b=%.2f,numSamples=%i,numThreads=%i,numBlocks=%i\n", a, b, numSamples, numThreads, numBlocks);
+    printf("block.x=%u, block.y=%u\n", block.x, block.y);
+ 
     // set up memory for results
     //double* d_results;
     //size_t numBytes = numBlocks * sizeof(double);
@@ -132,8 +131,8 @@ int main(int argc, char* argv[]) {
 
     end = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed_sec = end - start; 
-    //std::cout << numThreads << " threads: " << "Result: " << std::setprecision(10) << integral << "; Elapsed time: " << elapsed_sec.count() << "s" << std::endl;
-    std::cout << std::setprecision(10) << integral << std::endl;
+    std::cout << numThreads << " threads: " << " numBlocks " << numBlocks << " Result: " << std::setprecision(10) << integral << "; Elapsed time: " << elapsed_sec.count() << "s" << std::endl;
+    //std::cout << std::setprecision(10) << integral << std::endl;
 
     // write to csv file
     std::string csvfile_name = std::to_string((int)abs(a)) + "-" + std::to_string((int)abs(b)) + "-" + std::to_string(numSamples) + "-" + std::to_string(numThreads) + ".csv";

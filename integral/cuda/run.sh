@@ -17,21 +17,18 @@ NUM_SAMPLES=$3
 MAX_THREADS=$4
 echo "a=$A,b=$B,numSamples=$NUM_SAMPLES,maxThreads=$MAX_THREADS"
 
-## Run integrate for 1 to MAX_THREADS
-for NUM_THREADS in $(seq 1 $MAX_THREADS)
-do
-    srun ./integrate $A $B $NUM_SAMPLES $NUM_THREADS
-done
+## Run integrate
+srun ./integrate $A $B $NUM_SAMPLES $NUM_THREADS
 
-# Clean executable
-make clean
-
-# Take absolute value for naming purposes
-ABS_1=$1
-ABS_2=$2
-
-DATA_DIR="$ABS_1-$ABS_2-$3-all"
-rm -rf $DATA_DIR
-mkdir $DATA_DIR
-mv *.csv $DATA_DIR
-tar -czvf "$DATA_DIR.tar.gz" $DATA_DIR
+## Clean executable
+#make clean
+#
+## Take absolute value for naming purposes
+#ABS_1=$1
+#ABS_2=$2
+#
+#DATA_DIR="$ABS_1-$ABS_2-$3-all"
+#rm -rf $DATA_DIR
+#mkdir $DATA_DIR
+#mv *.csv $DATA_DIR
+#tar -czvf "$DATA_DIR.tar.gz" $DATA_DIR
